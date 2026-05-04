@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        /* (2) Scaled up by 2.5x */
+        .container {
+            position: relative;
+            width: 1400px; 
+            height: 787.5px;
+            margin: 20px auto;
+            background-color: #000;
+            overflow: hidden;
+            border: 5px solid #333;
+        }
+        
+        #blindfold {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            z-index: 10;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Arial Black', sans-serif;
+            text-align: center;
+        }
+
+        #startBtn {
+            display: block;
+            margin: 0 auto;
+            padding: 20px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 10px;
+        }
+        
+        #startBtn:disabled {
+            background-color: #444;
+            cursor: not-allowed;
+        }
+
+        /* Ensure the iframe fills the larger container */
+        #player {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="blindfold">
+            <h1 id="blindfoldText" style="font-size: 60px;">LOADING...</h1>
+        </div>
+        <div id="player"></div>
+    </div>
+
+    <button id="startBtn" onclick="playClip()" disabled>PLEASE WAIT...</button>
+
+    <script>
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        var player;
+
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '100%',
+                width: '100%',
+                videoId: '8DajVKAkL50', 
+                playerVars: {
+                    'controls': 0,
+                    'rel': 0,
+                    'disablekb': 1,
+                    'showinfo': 0,
+                    'modestbranding': 1
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            const btn = document.getElementById('startBtn');
+            btn.disabled = false;
+            btn.innerText = "START CLIP";
+            document.getElementById('blindfoldText').innerText = "READY?";
+        }
+
+        function playClip() {
+            const btn = document.getElementById('startBtn');
+            btn.disabled = true;
+            btn.innerText = "PLAYING...";
+
+            // Start the video while blindfold is still UP
+            player.loadVideoById({
+                'videoId': '8DajVKAkL50',
+                'startSeconds': 10,
+                'endSeconds': 20
+            });
+
+            // (1) Wait 500ms before revealing the clip to hide the spoiler frame
+            setTimeout(function() {
+                document.getElementById('blindfold').style.display = 'none';
+            }, 500); 
+        }
+
+        function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.ENDED) {
+                document.getElementById('blindfold').style.display = 'flex';
+                document.getElementById('blindfoldText').innerText = "GUESS THE MOVIE!";
+                
+                const btn = document.getElementById('startBtn');
+                btn.disabled = false;
+                btn.innerText = "REPLAY CLIP";
+            }
+        }
+    </script>
+
+</body>
+</html>
