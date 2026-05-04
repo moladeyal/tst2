@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .container {
+            position: relative;
+            width: 560px;
+            height: 315px;
+            margin-bottom: 10px;
+            background-color: #000;
+        }
+        
+        #blindfold {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            z-index: 10;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+            text-align: center;
+        }
+
+        #startBtn {
+            padding: 10px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        
+        #startBtn:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- The Blindfold -->
+        <div id="blindfold">
+            <h1 id="blindfoldText">Loading Video...</h1>
+        </div>
+        
+        <!-- The API will inject the video here -->
+        <div id="player"></div>
+    </div>
+
+    <!-- Button starts disabled until YouTube is fully loaded -->
+    <button id="startBtn" onclick="playClip()" disabled>Please Wait...</button>
+
+    <script>
+        // 1. Asynchronously load the YouTube IFrame Player API
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        var player;
+
+        // 2. This function fires automatically when the API is loaded
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '315',
+                width: '560',
+                videoId: '8DajVKAkL50', // We preload the video ID here
+                playerVars: {
+                    'controls': 0, // Hides the video timeline so they can't see the title
+                    'rel': 0,      // No related videos
+                    'disablekb': 1 // Disables keyboard controls
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        // 3. This fires when the video is buffered and ready to go
+        function onPlayerReady(event) {
+            const btn = document.getElementById('startBtn');
+            btn.disabled = false;
+            btn.innerText = "Start 10s Clip";
+            document.getElementById('blindfoldText').innerText = "Ready!";
+        }
+
+        // 4. The Button Click Event
+        function playClip() {
+            document.getElementById('blindfold').style.display = 'none';
+            const btn = document.getElementById('startBtn');
+            btn.disabled = true;
+            btn.innerText = "Playing...";
+
+            // Load the specific time chunk and play it instantly
+            player.loadVideoById({
+                'videoId': '8DajVKAkL50',
+                'startSeconds': 10,
+                'endSeconds': 20
+            });
+        }
+
+        // 5. This listens to what the video player is doing
+        function onPlayerStateChange(event) {
+            // YT.PlayerState.ENDED (State 0) means it hit the 'endSeconds' mark
+            if (event.data === YT.PlayerState.ENDED) {
+                document.getElementById('blindfold').style.display = 'flex';
+                document.getElementById('blindfoldText').innerText = "TIME IS UP!";
+                
+                const btn = document.getElementById('startBtn');
+                btn.disabled = false;
+                btn.innerText = "Replay Clip";
+            }
+        }
+    </script>
+
+</body>
+</html>
