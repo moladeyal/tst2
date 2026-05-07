@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Movie Hitster - Stable Dragging</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .setup-bar { display: flex; gap: 40px; background: #333; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+        .score-box input { width: 60px; font-size: 1.2rem; text-align: center; background: #444; color: white; border: 1px solid #666; border-radius: 4px; }
+        
+        .team-btn { padding: 10px 20px; cursor: pointer; border: none; background: #444; color: white; font-weight: bold; border-radius: 4px; }
+        .team-btn.active { background: #e74c3c; }
+
+        #timeline { 
+            display: flex; flex-wrap: wrap; gap: 15px; min-height: 150px; padding: 20px; 
+            background: #222; border: 2px dashed #444; border-radius: 10px; 
+            width: 95%; justify-content: center; align-items: center; 
+        }
+        
+        .card { width: 140px; height: 100px; background: #f39c12; color: #000; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-weight: bold; position: relative; transition: background-color 0.3s, border 0.3s; cursor: grab; }
+        .card:active { cursor: grabbing; }
+
+        .card.new { background: #3498db; color: white; border: 4px solid #fff; }
+        .card.revealed { background: #ecf0f1; color: #333; }
+        .card.valid { background: #55efc4 !important; border: 4px solid #00b894; color: #000; }
+        .card.invalid { background: #ff7675 !important; border: 4px solid #d63031; color: #000; }
+
+        .card .year, .card .title { display: none; }
+        .card.is-visible .year, .card.is-visible .title { display: block; }
+        .card.is-visible .hidden-text { display: none; }
+        .card .title { font-size: 0.75rem; padding: 0 5px; margin-top: 5px; }
+        .card .year { font-size: 1.4rem; }
+
+        .controls { margin-top: 30px; display: flex; gap: 10px; }
+        button { padding: 12px 20px; font-size: 1rem; cursor: pointer; border-radius: 5px; border: none; font-weight: bold; transition: opacity 0.2s; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .play-btn { background: #2ecc71; color: white; }
+        .reveal-btn { background: #9b59b6; color: white; }
+        .discard-btn { background: #e74c3c; color: white; }
+        .keep-btn { background: #2ecc71; color: white; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>🎬 Movie Timeline Game</h1>
+
+    <div class="setup-bar">
+        <div class="score-box">Team A: <input type="number" value="0"></div>
+        <div class="score-box">Team B: <input type="number" value="0"></div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <button id="btnA" class="team-btn active" onclick="switchTeam('A')">Team A Timeline</button>
+        <button id="btnB" class="team-btn" onclick="switchTeam('B')">Team B Timeline</button>
+    </div>
+
+    <div id="timeline"></div>
+
+    <div class="controls">
+        <button id="drawBtn" class="play-btn" onclick="drawMovie()">🎵 Play Random Movie</button>
+        <button id="revealBtn" class="reveal-btn hidden" onclick="handleReveal()">👁️ Reveal Year</button>
+        
+        <div id="validationBtns" class="hidden">
+            <button class="discard-btn" onclick="handleDiscard()">❌ Incorrect (Discard)</button>
+            <button class="keep-btn" onclick="handleKeep()">✅ Correct (Keep)</button>
+        </div>
+    </div>
+
+    <script>
+        const movies = [
+            {name: "Jaws", year: 1975, ytId: "u1c_E-LuSxs", start: 530},
+            {name: "Star Wars: Episode IV - A New Hope", year: 1977, ytId: "IK_iw5Yps2M", start: 100},
+            {name: "Raiders of the Lost Ark", year: 1981, ytId: "gtJAvZDhUEQ", start: 50},
+            {name: "E.T. the Extra-Terrestrial", year: 1982, ytId: "0xWMqsZOYWg", start: 26},
+            {name: "Ghostbusters", year: 1984, ytId: "aujMQ9lILMI", start: 45},
+            {name: "Back to the Future", year: 1985, ytId: "qW2syroSQTs", start: 36},
+            {name: "The Princess Bride", year: 1987, ytId: "lISBP_fPg1s", start: 18},
+            {name: "Die Hard", year: 1988, ytId: "pLl942BoyVg", start: 37},
+            {name: "Home Alone", year: 1990, ytId: "S7OWoc-j8qQ", start: 36},
+            {name: "Terminator 2: Judgment Day", year: 1991, ytId: "6z9qws7M8q8", start: 208},
+            {name: "Jurassic Park", year: 1993, ytId: "Rc_i5TKdmhs", start: 200},
+            {name: "The Lion King", year: 1994, ytId: "mzABW42AIhM", start: 75},
+            {name: "Toy Story", year: 1995, ytId: "wogrp3GNUM8", start: 20},
+            {name: "Titanic", year: 1997, ytId: "gf-tZ8OAc1U", start: 0},
+            {name: "The Truman Show", year: 1998, ytId: "1s0r7v-muQc", start: 181},
+            {name: "The Matrix", year: 1999, ytId: "Lweuy1X9Tcg", start: 215},
+            {name: "Gladiator", year: 2000, ytId: "lTmlYKiLBHI", start: 80},
+            {name: "Harry Potter and the Sorcerer's Stone", year: 2001, ytId: "eVE375YQL0s", start: 40},
+            {name: "Pirates of the Caribbean: The Curse of the Black Pearl", year: 2003, ytId: "UAA9mUz-uAE", start: 32},
+            {name: "Madagascar", year: 2005, ytId: "Am2AJWINDn0", start: 167},
+            {name: "Casino Royale", year: 2006, ytId: "iZxNbAwY_rk", start: 165},
+            {name: "Ratatouille", year: 2007, ytId: "1DmPd3or1EM", start: 135},
+            {name: "Kung Fu Panda", year: 2008, ytId: "-MgpI23tJ9k", start: 2},
+            {name: "Avatar", year: 2009, ytId: "jM8JqkMWAJI", start: 72},
+            {name: "Despicable Me", year: 2010, ytId: "OtpXe5w9m1g", start: 1296},
+            {name: "The Hunger Games", year: 2012, ytId: "hXZ1rvaXTkI", start: 0},
+            {name: "Frozen", year: 2013, ytId: "c3AI1Z-n4dw", start: 272},
+            {name: "Inside Out", year: 2015, ytId: "QT6FdhKriB8", start: 0},
+            {name: "Moana", year: 2016, ytId: "RTWhvp_OD6s", start: 123},
+            {name: "Wonder Woman", year: 2017, ytId: "K8A9UAqA4Ks", start: 220},
+            {name: "Sonic the Hedgehog", year: 2020, ytId: "Cd7s6pu3Hos", start: 445},
+            {name: "Dune", year: 2021, ytId: "eSVKuXpLiQw", start: 46},
+            {name: "The Super Mario Bros. Movie", year: 2023, ytId: "hyNjTrWcn2I", start: 70},
+            {name: "Barbie", year: 2023, ytId: "pHPogYMl_FA", start: 0},
+            {name: "A Minecraft Movie", year: 2025, ytId: "EY4h38NaXwU", start: 15}
+        ];
+
+        let state = {
+            currentTeam: 'A',
+            usedIds: new Set(),
+            timelines: { A: [], B: [] },
+            activeMovie: null,
+            activeMovieIndex: -1, // Track where the new card is in the list
+            isVerifying: false
+        };
+
+        const timelineEl = document.getElementById('timeline');
+
+        // Initialize Sortable
+        const sortable = Sortable.create(timelineEl, {
+            animation: 150,
+            onEnd: function (evt) {
+                // If we have an active movie, we need to know its NEW logical index
+                if (state.activeMovie) {
+                    const cards = Array.from(timelineEl.children);
+                    state.activeMovieIndex = cards.findIndex(c => c.classList.contains('new'));
+                    if (state.isVerifying) checkOrderVisually();
+                }
+            }
+        });
+
+        function switchTeam(team) {
+            if (state.activeMovie) return alert("Finish the turn first!");
+            state.currentTeam = team;
+            document.querySelectorAll('.team-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn' + team).classList.add('active');
+            render();
+        }
+
+        function drawMovie() {
+            const avail = movies.filter(m => !state.usedIds.has(m.ytId));
+            if (!avail.length) return alert("All movies used!");
+
+            state.activeMovie = avail[Math.floor(Math.random() * avail.length)];
+            state.usedIds.add(state.activeMovie.ytId);
+            state.activeMovieIndex = state.timelines[state.currentTeam].length; // Default to end
+
+            window.open(`https://moladeyal.github.io/tst2/yt_player.html?id=${state.activeMovie.ytId}&start=${state.activeMovie.start}&duration=15`, '_blank');
+            
+            document.getElementById('drawBtn').classList.add('hidden');
+            document.getElementById('revealBtn').classList.remove('hidden');
+            render();
+        }
+
+        function handleReveal() {
+            state.isVerifying = true;
+            document.getElementById('revealBtn').classList.add('hidden');
+            document.getElementById('validationBtns').classList.remove('hidden');
+            
+            const activeCard = document.querySelector('.card.new');
+            if (activeCard) activeCard.classList.add('is-visible');
+            
+            checkOrderVisually();
+        }
+
+        function checkOrderVisually() {
+            const cards = Array.from(timelineEl.children);
+            const idx = cards.findIndex(c => c.classList.contains('new'));
+            if (idx === -1) return;
+
+            const myYear = state.activeMovie.year;
+            const prevYear = idx > 0 ? parseInt(cards[idx - 1].dataset.year) : -Infinity;
+            const nextYear = idx < cards.length - 1 ? parseInt(cards[idx + 1].dataset.year) : Infinity;
+
+            const card = cards[idx];
+            if (myYear >= prevYear && myYear <= nextYear) {
+                card.className = 'card new is-visible valid';
+            } else {
+                card.className = 'card new is-visible invalid';
+            }
+        }
+
+        function handleKeep() {
+            // Permanently insert into state at the current index
+            state.timelines[state.currentTeam].splice(state.activeMovieIndex, 0, state.activeMovie);
+            clearTurn();
+        }
+
+        function handleDiscard() {
+            clearTurn();
+        }
+
+        function clearTurn() {
+            state.activeMovie = null;
+            state.activeMovieIndex = -1;
+            state.isVerifying = false;
+            document.getElementById('drawBtn').classList.remove('hidden');
+            document.getElementById('revealBtn').classList.add('hidden');
+            document.getElementById('validationBtns').classList.add('hidden');
+            render();
+        }
+
+        function render() {
+            timelineEl.innerHTML = '';
+            const currentList = [...state.timelines[state.currentTeam]];
+            
+            // If there's an active movie, inject it into the list at its current logical position
+            if (state.activeMovie && state.activeMovieIndex !== -1) {
+                currentList.splice(state.activeMovieIndex, 0, { ...state.activeMovie, isActive: true });
+            }
+
+            currentList.forEach(m => {
+                const card = createCard(m, m.isActive ? state.isVerifying : true);
+                if (m.isActive) {
+                    card.classList.add('new');
+                    if (state.isVerifying) card.classList.add('is-visible');
+                }
+                timelineEl.appendChild(card);
+            });
+            
+            if (state.isVerifying) checkOrderVisually();
+        }
+
+        function createCard(m, revealed) {
+            const div = document.createElement('div');
+            div.className = `card ${revealed ? 'revealed is-visible' : ''}`;
+            div.dataset.id = m.ytId;
+            div.dataset.year = m.year;
+            div.innerHTML = `
+                <div class="hidden-text">?</div>
+                <div class="year">${m.year}</div>
+                <div class="title">${m.name}</div>
+            `;
+            return div;
+        }
+
+        // Initialize game with one starter card
+        function initialDraw(timeline) {
+            const avail1 = movies.filter(m => !state.usedIds.has(m.ytId));
+            const movie1 = avail1[Math.floor(Math.random() * avail1.length)];
+            timeline.push(movie1);
+            state.usedIds.add(movie1.ytId);            
+        }
+        initialDraw(state.timelines.A);
+        initialDraw(state.timelines.B);
+        render();
+        // Prevent accidental navigation/refresh
+        window.addEventListener('beforeunload', function (e) {
+            // Cancel the event
+            e.preventDefault();
+            // Chrome and most modern browsers require this to show the prompt
+            e.returnValue = '';
+        });        
+    </script>
+</body>
+</html>
