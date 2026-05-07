@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        /* Scaled up by 2.5x */
+        .container {
+            position: relative;
+            width: 1400px; 
+            height: 787.5px;
+            margin: 20px auto;
+            background-color: #000;
+            overflow: hidden;
+            border: 5px solid #333;
+        }
+        
+        /* Main Blindfold (Start/End screen) */
+        #blindfold {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            z-index: 20; /* Above everything */
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Arial Black', sans-serif;
+            text-align: center;
+        }
+
+        /* (NEW) Permanent Anti-Spoiler Strips */
+        .spoiler-mask {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            background-color: black;
+            z-index: 15; /* Sits behind main blindfold but in front of video */
+        }
+        
+        #top-mask {
+            top: 0;
+            height: 70px; /* Masks the Title and Channel logo */
+        }
+
+        #bottom-mask {
+            bottom: 0;
+            height: 50px; /* Masks any UI pops at the bottom */
+        }
+
+        #startBtn {
+            display: block;
+            margin: 0 auto;
+            padding: 20px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 10px;
+        }
+        
+        #startBtn:disabled {
+            background-color: #444;
+            cursor: not-allowed;
+        }
+
+        #player {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Main full-screen blindfold -->
+        <div id="blindfold">
+            <h1 id="blindfoldText" style="font-size: 60px;">LOADING...</h1>
+        </div>
+
+        <!-- (NEW) Permanent Masks to hide Title and UI -->
+        <div id="top-mask" class="spoiler-mask"></div>
+        <div id="bottom-mask" class="spoiler-mask"></div>
+        
+        <div id="player"></div>
+    </div>
+
+    <button id="startBtn" onclick="playClip()" disabled>PLEASE WAIT...</button>
+
+    <script>
+        // 1. Extract parameters from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Use the URL parameters, or fallback to default values if they are missing
+        const videoId = urlParams.get('id') || '3bReJswiMGM'; 
+        const startSeconds = parseInt(urlParams.get('start'), 10) || 80;
+        const duration = parseInt(urlParams.get('duration'), 10) || 15;
+        const endSeconds = startSeconds + duration;
+
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        var player;
+
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '100%',
+                width: '100%',
+                videoId: videoId, 
+                playerVars: {
+                    'controls': 0,
+                    'rel': 0,
+                    'disablekb': 1,
+                    'iv_load_policy': 3, // Hides annotations
+                    'modestbranding': 1,
+                    'showinfo': 0 
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            const btn = document.getElementById('startBtn');
+            btn.disabled = false;
+            btn.innerText = "START CLIP";
+            document.getElementById('blindfoldText').innerText = "READY?";
+        }
+
+        function playClip() {
+            const btn = document.getElementById('startBtn');
+            btn.disabled = true;
+            btn.innerText = "PLAYING...";
+
+            player.loadVideoById({
+                'videoId': '3bReJswiMGM',
+                'startSeconds': startSeconds,
+                'endSeconds': endSeconds
+            });
+
+            setTimeout(function() {
+                document.getElementById('blindfold').style.display = 'none';
+            }, 600); // Slightly longer delay to ensure playback is smooth
+        }
+
+        function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.ENDED) {
+                document.getElementById('blindfold').style.display = 'flex';
+                document.getElementById('blindfoldText').innerText = "GUESS THE MOVIE!";
+                
+                const btn = document.getElementById('startBtn');
+                btn.disabled = false;
+                btn.innerText = "REPLAY CLIP";
+            }
+        }
+    </script>
+
+</body>
+</html>
